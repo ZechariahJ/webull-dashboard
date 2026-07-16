@@ -1,0 +1,53 @@
+name: Build dashboard
+
+# Rebuilds index.html every weekday morning in the cloud (no Mac needed) and
+# commits it back to this repo, which GitHub Pages then serves.
+on:
+  schedule:
+    # 12:00 UTC = 8:00 AM US Eastern (EDT) / 7:00 AM (EST). Weekdays only.
+    # GitHub may start scheduled runs a few minutes late.
+    - cron: "0 12 * * 1-5"
+  workflow_dispatch: {}   # lets you run it on demand from the Actions tab
+
+permissions:
+  contents: write         # allow the job to commit the refreshed index.html
+
+concurrency:
+  group: build-dashboard
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r generator/requirements.txt
+
+      - name: Generate dashboard
+        env:
+          WEBULL_APP_KEY: ${{ secrets.WEBULL_APP_KEY }}
+          WEBULL_APP_SECRET: ${{ secrets.WEBULL_APP_SECRET }}
+          WEBULL_ENV: production
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          REPORT_OUTPUT: ${{ github.workspace }}/index.html
+        run: |
+          cd generator
+          python report.py
+
+      - name: Commit refreshed dashboard (if changed)
+        run: |
+          git config user.name "dashboard-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No change in dashboard; nothing to commit."
+          else
+            git commit -m "Update dashboard $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
