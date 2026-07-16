@@ -75,10 +75,10 @@ class Config:
     DCA_STATE_FILE = os.getenv("DCA_STATE_FILE", ".dca_state.json")
 
     # --- Research dashboard ---
-    # How many raw movers to fetch before filtering to the S&P/NASDAQ universe
-    # (the raw top movers are mostly penny stocks, so we cast a wide net) and how
-    # many index names to show in each list.
-    MOVERS_FETCH = _env_int("MOVERS_FETCH", 250)
+    # How many raw movers to fetch before filtering to the S&P/NASDAQ universe.
+    # Big-caps rarely post huge % moves, so they rank low in an all-stocks list;
+    # fetch deep (1000) to reliably surface a full top-10 of real index names.
+    MOVERS_FETCH = _env_int("MOVERS_FETCH", 1000)
     MOVERS_TOP = _env_int("MOVERS_TOP", 10)
     # Where the generated HTML dashboard is written.
     REPORT_OUTPUT = os.getenv("REPORT_OUTPUT", "dashboard.html")
