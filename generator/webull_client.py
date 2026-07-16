@@ -16,6 +16,7 @@ Verified against webull-openapi-python-sdk 2.0.13 (July 2026):
   - data.market_data.get_history_bar(sym, cat, span, count) -> requests.Response
 If the SDK version you install differs, this wrapper is the only file to touch.
 """
+import time
 import uuid
 import logging
 
@@ -36,22 +37,6 @@ class MarketDataSubscriptionError(RuntimeError):
     subscription. Webull signals this inconsistently — sometimes an HTTP 403
     response, sometimes a raised 401 ServerException ("please subscribe to stock
     quotes") — so we normalize both to this one clear error."""
-
-
-def _md_call(fn, label: str):
-    """Run a market-data SDK call, translating the 'no quote subscription' rejection
-    (which the SDK raises as a 401 ServerException) into MarketDataSubscriptionError."""
-    try:
-        return fn()
-    except ServerException as e:
-        msg = (e.get_error_msg() or "")
-        low = msg.lower()
-        if e.get_http_status() in (401, 403) and (
-                "subscribe" in low or "quote" in low or "insufficient permission" in low):
-            raise MarketDataSubscriptionError(
-                f"{label}: {msg} Enable the market-data quote subscription in the "
-                "Webull Developer Portal ('Subscribe Advanced Quotes').") from None
-        raise
 
 
 def _rows(payload):
@@ -86,11 +71,65 @@ def _first(d: dict, *keys, default=None):
 class WebullClient:
     def __init__(self, cfg: Config = Config):
         self.cfg = cfg
-        self.api_client = ApiClient(cfg.APP_KEY, cfg.APP_SECRET, cfg.REGION)
-        self.api_client.add_endpoint(cfg.REGION, cfg.http_host())
+        self._build_clients()
+        self.account_id = cfg.ACCOUNT_ID
+
+    def _build_clients(self):
+        """(Re)construct the SDK clients, forcing a fresh auth token."""
+        self.api_client = ApiClient(self.cfg.APP_KEY, self.cfg.APP_SECRET, self.cfg.REGION)
+        self.api_client.add_endpoint(self.cfg.REGION, self.cfg.http_host())
         self.trade = TradeClient(self.api_client)
         self.data = DataClient(self.api_client)
-        self.account_id = cfg.ACCOUNT_ID
+
+    def _md(self, fn, label: str, retries: int = 6, delay: float = 2.0):
+        """Run a market-data SDK call with resilience:
+
+          - translate the 'no quote subscription' rejection (a 401/403 ServerException)
+            into a clear MarketDataSubscriptionError;
+          - retry transient INVALID_TOKEN errors — the SDK's background token thread
+            intermittently drops the `x-access-token` header. Waiting usually clears it;
+            if it stays stuck, rebuild the client once to force a fresh token;
+          - back off on 429 TOO_MANY_REQUESTS.
+
+        `fn` is re-evaluated each attempt and reads `self.data`, so a rebuild takes effect.
+        """
+        last_exc = None
+        rebuilt = False
+        for attempt in range(retries):
+            try:
+                return fn()
+            except ServerException as e:
+                msg = (e.get_error_msg() or "")
+                low = msg.lower()
+                code = (e.get_error_code() or "")
+                status = e.get_http_status()
+                if status in (401, 403) and (
+                        "subscribe" in low or "quote" in low or "insufficient permission" in low):
+                    raise MarketDataSubscriptionError(
+                        f"{label}: {msg} Enable the market-data quote subscription in the "
+                        "Webull Developer Portal ('Subscribe Advanced Quotes').") from None
+                if code == "INVALID_TOKEN" or "access-token" in low or "access token" in low:
+                    last_exc = e
+                    log.warning("%s: transient token error (attempt %d/%d)",
+                                label, attempt + 1, retries)
+                    time.sleep(delay)
+                    # If waiting hasn't cleared it, force a fresh token once.
+                    if attempt >= 2 and not rebuilt:
+                        log.warning("%s: rebuilding client for a fresh token", label)
+                        try:
+                            self._build_clients()
+                            rebuilt = True
+                        except Exception:  # noqa: BLE001
+                            pass
+                    continue
+                if code == "TOO_MANY_REQUESTS" or status == 429:
+                    last_exc = e
+                    log.warning("%s: rate limited (attempt %d/%d), backing off",
+                                label, attempt + 1, retries)
+                    time.sleep(delay * 2)
+                    continue
+                raise
+        raise last_exc
 
     # --- Account ---
     def ensure_account_id(self) -> str:
@@ -130,7 +169,7 @@ class WebullClient:
     def get_history_bars(self, symbol: str, timespan=Timespan.M1, count: int = 200):
         """Recent candlestick bars for `symbol`. Requires a market-data
         subscription in production (403 otherwise)."""
-        res = _md_call(lambda: self.data.market_data.get_history_bar(
+        res = self._md(lambda: self.data.market_data.get_history_bar(
             symbol, Category.US_STOCK.name, timespan.name, str(count)), "history_bar")
         if res.status_code == 403:
             raise MarketDataSubscriptionError(
@@ -150,7 +189,7 @@ class WebullClient:
         rank_type: PRE_MARKET, AFTER_MARKET, MIN_3/5, DAY_1, DAY_5, MONTH_1/3, WEEK_52.
         Returns the raw JSON payload.
         """
-        res = _md_call(lambda: self.data.screener.get_gainers_losers(
+        res = self._md(lambda: self.data.screener.get_gainers_losers(
             rank_type, Category.US_STOCK.name, sort_by,
             page_index=1, page_size=count, direction=direction), "gainers_losers")
         if res.status_code == 403:
@@ -162,7 +201,7 @@ class WebullClient:
 
     def get_most_active(self, count: int = 10):
         """Most actively traded US stocks (by volume). Returns raw JSON."""
-        res = _md_call(lambda: self.data.screener.get_most_active(
+        res = self._md(lambda: self.data.screener.get_most_active(
             Category.US_STOCK.name, page_index=1, page_size=count), "most_active")
         if res.status_code == 403:
             raise MarketDataSubscriptionError(
@@ -174,7 +213,7 @@ class WebullClient:
     def get_earnings_calendar(self, symbol: str):
         """Earnings calendar for one symbol (±6 months). Rows without `eps_actual`
         are upcoming reports. Returns raw JSON."""
-        res = _md_call(lambda: self.data.fundamentals.get_earnings_calendar(
+        res = self._md(lambda: self.data.fundamentals.get_earnings_calendar(
             symbol, Category.US_STOCK.name), f"earnings:{symbol}")
         if res.status_code == 403:
             raise MarketDataSubscriptionError(
