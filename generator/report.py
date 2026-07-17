@@ -156,6 +156,8 @@ def render_html(data: dict, news_items=None, earnings_rows=None) -> str:
   .panel[hidden] {{ display: none; }}
   /* earnings */
   .hint {{ font-size: 12px; margin: 0 0 8px; }}
+  /* Keep date/session on one line — they wrap badly on phones. */
+  table.earnings td:nth-child(2), table.earnings td:nth-child(3) {{ white-space: nowrap; }}
   table.earnings tr.er-row {{ cursor: pointer; }}
   table.earnings tr.er-row:hover td {{ background: rgba(127,127,127,.08); }}
   table.earnings tr.er-row:focus {{ outline: 2px solid #3b82f6; outline-offset: -2px; }}
