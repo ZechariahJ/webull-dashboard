@@ -80,6 +80,15 @@ class Config:
     # fetch deep (1000) to reliably surface a full top-10 of real index names.
     MOVERS_FETCH = _env_int("MOVERS_FETCH", 1000)
     MOVERS_TOP = _env_int("MOVERS_TOP", 10)
+
+    # --- Earnings tab (Finnhub; uses the same NEWS_API_KEY) ---
+    # How far ahead the earnings calendar looks.
+    EARNINGS_DAYS = _env_int("EARNINGS_DAYS", 7)
+    # Max stocks listed. Each one costs an extra news call at build time, so this
+    # bounds both runtime and Finnhub rate-limit exposure.
+    EARNINGS_MAX = _env_int("EARNINGS_MAX", 60)
+    # Headlines embedded per stock (shown when you click it).
+    EARNINGS_NEWS_PER = _env_int("EARNINGS_NEWS_PER", 5)
     # Where the generated HTML dashboard is written.
     REPORT_OUTPUT = os.getenv("REPORT_OUTPUT", "dashboard.html")
     # Optional free news API (Finnhub free tier). Leave blank to skip news.

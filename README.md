@@ -1,8 +1,15 @@
 # Market Dashboard
 
-Auto-generated static page showing public US market movers (S&P 500 + NASDAQ-100)
-and market news headlines. **Informational only — not investment advice.** No
-personal or account data ever appears here.
+Auto-generated static page, limited to S&P 500 + NASDAQ-100 names. Two tabs:
+
+- **Movers** — top gainers / losers / most-active, plus market headlines
+- **Earnings** — upcoming earnings calendar; click any stock to see its recent news
+
+**Informational only — not investment advice.** No personal or account data ever
+appears here.
+
+Per-stock news is fetched at *build* time and embedded in the page: the site is
+static and the browser must never see the API key.
 
 Live page is served by **GitHub Pages** from `index.html` on `main`.
 
