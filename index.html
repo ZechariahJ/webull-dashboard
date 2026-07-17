@@ -42,6 +42,8 @@
   .panel[hidden] { display: none; }
   /* earnings */
   .hint { font-size: 12px; margin: 0 0 8px; }
+  /* Keep date/session on one line — they wrap badly on phones. */
+  table.earnings td:nth-child(2), table.earnings td:nth-child(3) { white-space: nowrap; }
   table.earnings tr.er-row { cursor: pointer; }
   table.earnings tr.er-row:hover td { background: rgba(127,127,127,.08); }
   table.earnings tr.er-row:focus { outline: 2px solid #3b82f6; outline-offset: -2px; }
@@ -56,7 +58,7 @@
 <body><div class="wrap">
 <header>
   <h1>Market Dashboard</h1>
-  <div class="muted">Generated 2026-07-17T05:33:37+00:00 UTC</div>
+  <div class="muted">Generated 2026-07-17T05:38:34+00:00 UTC</div>
   <div class="disclaimer">Informational only — public market data, not investment
   advice. Limited to S&amp;P 500 + NASDAQ-100 names. Do your own research
   before trading.</div>
