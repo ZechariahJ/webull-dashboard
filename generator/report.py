@@ -136,7 +136,7 @@ def render_html(data: dict, news_items=None, earnings_rows=None) -> str:
   @media (prefers-color-scheme: light) {{ th, td {{ border-color:#e2e5ea; }} }}
   th {{ font-size: 12px; opacity: .6; font-weight: 600; }}
   td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
-  td.sym {{ font-weight: 700; }}
+  td.sym {{ font-weight: 700; white-space: nowrap; }}  /* keep ticker + ›/chevron on one line */
   td.name {{ opacity: .7; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
   .up {{ color: #3fb950; }} .down {{ color: #f85149; }}
   ul.news {{ list-style: none; padding: 0; margin: 0; }}
