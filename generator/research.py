@@ -10,6 +10,7 @@ recommendation to buy or sell anything.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import date, datetime, timezone
@@ -18,7 +19,9 @@ from typing import List
 
 log = logging.getLogger("research")
 
-_UNIVERSE_FILE = os.path.join(os.path.dirname(__file__), "data", "major_tickers.txt")
+_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+_UNIVERSE_FILE = os.path.join(_DATA_DIR, "major_tickers.txt")
+_NAMES_FILE = os.path.join(_DATA_DIR, "ticker_names.json")
 
 
 @lru_cache(maxsize=1)
@@ -33,6 +36,22 @@ def load_universe(path: str = _UNIVERSE_FILE) -> frozenset:
     except FileNotFoundError:
         log.warning("research: universe file not found (%s); movers unfiltered.", path)
         return frozenset()
+
+
+@lru_cache(maxsize=1)
+def load_names(path: str = _NAMES_FILE) -> dict:
+    """Load the ticker -> company-name map. Empty dict if the file is missing."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return {str(k).upper(): v for k, v in json.load(f).items()}
+    except (FileNotFoundError, ValueError):
+        log.warning("research: names file not found (%s); showing tickers only.", path)
+        return {}
+
+
+def company_name(symbol: str) -> str:
+    """Company name for a ticker, or '' if unknown."""
+    return load_names().get(str(symbol).upper(), "")
 
 
 def filter_universe(rows: List[dict], universe) -> List[dict]:

@@ -83,22 +83,25 @@ def _earnings_table(rows):
     trs = []
     for i, r in enumerate(rows):
         sym = html.escape(str(r.get("symbol", "")))
+        name = html.escape(str(r.get("name", "")))
         est = r.get("eps_estimate")
         est = "—" if est in (None, "") else html.escape(f"{float(est):.2f}") \
             if isinstance(est, (int, float)) else html.escape(str(est))
         trs.append(
             f"<tr class='er-row' data-target='er{i}' tabindex='0'>"
             f"<td class='sym'>{sym} <span class='chev'>›</span></td>"
+            f"<td class='name'>{name}</td>"
             f"<td>{html.escape(str(r.get('date', '')))}</td>"
             f"<td>{html.escape(str(r.get('session') or '—'))}</td>"
             f"<td class='num'>{est}</td></tr>"
-            f"<tr class='er-news' id='er{i}' hidden><td colspan='4'>"
-            f"<div class='er-news-box'><div class='er-news-hd muted'>Recent news — {sym}</div>"
+            f"<tr class='er-news' id='er{i}' hidden><td colspan='5'>"
+            f"<div class='er-news-box'><div class='er-news-hd muted'>"
+            f"Recent news — {sym}{(' · ' + name) if name else ''}</div>"
             f"{_news_items_html(r.get('news') or [])}</div></td></tr>")
     return ("<h2>Upcoming earnings</h2>"
             "<p class='muted hint'>Click any stock to see its recent news.</p>"
-            "<table class='earnings'><thead><tr><th>Symbol</th><th>Date</th>"
-            "<th>Session</th><th>EPS est.</th></tr></thead>"
+            "<table class='earnings'><thead><tr><th>Symbol</th><th>Name</th>"
+            "<th>Date</th><th>Session</th><th>EPS est.</th></tr></thead>"
             f"<tbody>{''.join(trs)}</tbody></table>")
 
 
@@ -156,8 +159,10 @@ def render_html(data: dict, news_items=None, earnings_rows=None) -> str:
   .panel[hidden] {{ display: none; }}
   /* earnings */
   .hint {{ font-size: 12px; margin: 0 0 8px; }}
-  /* Keep date/session on one line — they wrap badly on phones. */
-  table.earnings td:nth-child(2), table.earnings td:nth-child(3) {{ white-space: nowrap; }}
+  /* Keep date/session (cols 3-4) on one line — they wrap badly on phones. */
+  table.earnings td:nth-child(3), table.earnings td:nth-child(4) {{ white-space: nowrap; }}
+  /* Company name (col 2): truncate rather than widen the row on small screens. */
+  table.earnings td.name {{ max-width: 40vw; }}
   table.earnings tr.er-row {{ cursor: pointer; }}
   table.earnings tr.er-row:hover td {{ background: rgba(127,127,127,.08); }}
   table.earnings tr.er-row:focus {{ outline: 2px solid #3b82f6; outline-offset: -2px; }}

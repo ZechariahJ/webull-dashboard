@@ -17,7 +17,7 @@ from typing import List
 import requests
 
 import news
-from research import filter_universe
+from research import filter_universe, company_name
 
 log = logging.getLogger("earnings")
 
@@ -88,6 +88,7 @@ def gather(api_key: str, universe, days: int = 7, max_rows: int = 60,
     log.info("earnings: %d index names in the next %dd; fetching news for %d",
              len(seen), days, len(uniq))
     for i, r in enumerate(uniq):
+        r["name"] = company_name(r["symbol"])
         r["news"] = news.fetch_company_news(api_key, r["symbol"], limit=news_per)
         if i < len(uniq) - 1:
             time.sleep(pace)  # stay under the free-tier rate limit
